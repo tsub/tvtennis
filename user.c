@@ -19,15 +19,15 @@
 #include "user.h"
 #include <stdlib.h>
 #include <avr/eeprom.h>
+#include <util/delay.h>
 
 /* ローカル関数 */
 static void MovePlayer(void);
 static void MoveBall(void);
-// static void CalcScore(void);
-// static void ShowScore(void);
 static void Judge(void);
 static void UpdateLED(void);
 static void init_rand(void);
+static void postions_init(void);
 
 #define MAX_SCORE 5 // スコアの最大点
 #define BALL_MOVE_TIME 3 // ボールが動く速さ
@@ -40,6 +40,133 @@ volatile uchar led[LED_SZ]; /* マトリクスLED */
 int ball_wait = 0;
 int player_wait = 0;
 int judge_wait = 0;
+int score_wait = 0;
+int score_flag = 0;
+int left_score[MAX_SCORE + 1][8] = {
+	{
+		0b00000000,
+		0b11100000,
+		0b10100000,
+		0b10100000,
+		0b10100000,
+		0b11100000,
+		0b00000000,
+		0b00000000,
+	},
+	{
+		0b00000000,
+		0b11000000,
+		0b01000000,
+		0b01000000,
+		0b01000000,
+		0b11100000,
+		0b00000000,
+		0b00000000,
+	},
+	{
+		0b00000000,
+		0b11100000,
+		0b00100000,
+		0b01000000,
+		0b10000000,
+		0b11100000,
+		0b00000000,
+		0b00000000,
+	},
+	{
+		0b00000000,
+		0b11100000,
+		0b00100000,
+		0b11100000,
+		0b00100000,
+		0b11100000,
+		0b00000000,
+		0b00000000,
+	},
+	{
+		0b00000000,
+		0b10100000,
+		0b10100000,
+		0b11100000,
+		0b00100000,
+		0b00100000,
+		0b00000000,
+		0b00000000,
+	},
+	{
+		0b00000000,
+		0b11100000,
+		0b10000000,
+		0b11100000,
+		0b00100000,
+		0b11100000,
+		0b00000000,
+		0b00000000,
+	},
+};
+
+int right_score[MAX_SCORE + 1][8] = {
+	{
+		0b00000000,
+		0b00000111,
+		0b00000101,
+		0b00000101,
+		0b00000101,
+		0b00000111,
+		0b00000000,
+		0b00000000,
+	},
+	{
+		0b00000000,
+		0b00000110,
+		0b00000010,
+		0b00000010,
+		0b00000010,
+		0b00000111,
+		0b00000000,
+		0b00000000,
+	},
+	{
+		0b00000000,
+		0b00000111,
+		0b00000001,
+		0b00000010,
+		0b00000100,
+		0b00000111,
+		0b00000000,
+		0b00000000,
+	},
+	{
+		0b00000000,
+		0b00000111,
+		0b00000001,
+		0b00000111,
+		0b00000001,
+		0b00000111,
+		0b00000000,
+		0b00000000,
+	},
+	{
+		0b00000000,
+		0b00000101,
+		0b00000101,
+		0b00000111,
+		0b00000001,
+		0b00000001,
+		0b00000000,
+		0b00000000,
+	},
+	{
+		0b00000000,
+		0b00000111,
+		0b00000100,
+		0b00000111,
+		0b00000001,
+		0b00000111,
+		0b00000000,
+		0b00000000,
+	},
+};
 
 typedef struct Pos {
 	uchar m; // 行
@@ -52,7 +179,6 @@ typedef struct Pos {
 static struct {
 	uchar pos1; // 左プレイヤーの板の位置（上側）
 	uchar pos2; // 左プレイヤーの板の位置（下側）
-	int dir; // 左プレイヤーの進む方向
 	int score; // 左プレイヤーのスコア
 } left_player;
 
@@ -60,7 +186,6 @@ static struct {
 static struct {
 	uchar pos1; // 右プレイヤーの板の位置（上側）
 	uchar pos2; // 右プレイヤーの板の位置（下側）
-	int dir; // 右プレイヤーの進む方向
 	int score; // 右プレイヤーのスコア
 } right_player;
 
@@ -74,13 +199,29 @@ static struct {
 void user_init(void) {
 	left_player.pos1 = 1;
 	left_player.pos2 = 0;
-	left_player.dir = 1;
-	// left_player.score = 0;
+	left_player.score = 0;
 
 	right_player.pos1 = 1;
 	right_player.pos2 = 0;
-	right_player.dir = 1;
-	// right_player.score = 0;
+	right_player.score = 0;
+
+	score_flag = 0;
+
+	init_rand();
+
+	ball.pos.m = rand() & 0x07;
+	ball.pos.n = 0x04;
+	do {
+		ball.dir = rand() % 7;
+	} while(ball.dir == 0 || ball.dir == 4 || ball.dir == 2 || ball.dir == 6);
+}
+
+void postions_init(void) {
+	left_player.pos1 = 1;
+	left_player.pos2 = 0;
+
+	right_player.pos1 = 1;
+	right_player.pos2 = 0;
 
 	init_rand();
 
@@ -93,10 +234,16 @@ void user_init(void) {
 
 /* ユーザー処理(100ms毎に呼ばれる) */
 void user_main(void) {
-	MovePlayer();
-	MoveBall();
+	if(!score_flag) {
+		MovePlayer();
+		MoveBall();
+	}
+
 	UpdateLED();
-	Judge();
+	
+	if(!score_flag) {
+		Judge();
+	}
 }
 
 // ボールの移動
@@ -132,7 +279,7 @@ static void MoveBall() {
 				if(ball.pos.m == right_player.pos1 || ball.pos.m == right_player.pos2) {
 					if(ball.pos.n == 1) {
 						ball.dir = 7;
-						_sound(BEEP_HIGH);
+						_sound(BEEP_LOW);
 					}
 				}
 
@@ -157,7 +304,7 @@ static void MoveBall() {
 				if(ball.pos.m == right_player.pos1 || ball.pos.m == right_player.pos2) {
 					if(ball.pos.n == 1) {
 						ball.dir = 6;
-						_sound(BEEP_HIGH);
+						_sound(BEEP_LOW);
 					}
 				}
 
@@ -182,7 +329,7 @@ static void MoveBall() {
 				if(ball.pos.m == right_player.pos1 || ball.pos.m == right_player.pos2) {
 					if(ball.pos.n == 1) {
 						ball.dir = 5;
-						_sound(BEEP_HIGH);
+						_sound(BEEP_LOW);
 					}
 				}
 
@@ -223,7 +370,7 @@ static void MoveBall() {
 				if(ball.pos.m == left_player.pos1 || ball.pos.m == left_player.pos2) {
 					if(ball.pos.n == 6) {
 						ball.dir = 3;
-						_sound(BEEP_HIGH);
+						_sound(BEEP_LOW);
 					}
 				}
 
@@ -248,7 +395,7 @@ static void MoveBall() {
 				if(ball.pos.m == left_player.pos1 || ball.pos.m == left_player.pos2) {
 					if(ball.pos.n == 6) {
 						ball.dir = 2;
-						_sound(BEEP_HIGH);
+						_sound(BEEP_LOW);
 					}
 				}
 
@@ -273,7 +420,7 @@ static void MoveBall() {
 				if(ball.pos.m == left_player.pos1 || ball.pos.m == left_player.pos2) {
 					if(ball.pos.n == 6) {
 						ball.dir = 1;
-						_sound(BEEP_HIGH);
+						_sound(BEEP_LOW);
 					}
 				}
 
@@ -297,48 +444,12 @@ static void MoveBall() {
 // プレイヤーの移動
 static void MovePlayer() {
 	if(sw == 1 || sw == 3) {
-		/*
-		   if(left_player.dir) {
-		   left_player.pos1++;
-		   left_player.pos2++;
-
-		   if(left_player.pos1 >= 7) {
-		   left_player.dir = 0;
-		   }
-		   }
-		   else {
-		   left_player.pos1--;
-		   left_player.pos2--;
-
-		   if(left_player.pos2 <= 0) {
-		   left_player.dir = 1;
-		   }
-		   }
-		   */
 		if(left_player.pos1 < 7) {
 			left_player.pos1++;
 			left_player.pos2++;
 		}
 	}
 	if(sw == 2 || sw == 3) {
-		/*
-		   if(right_player.dir) {
-		   right_player.pos1++;
-		   right_player.pos2++;
-
-		   if(right_player.pos1 >= 7) {
-		   right_player.dir = 0;
-		   }
-		   }
-		   else {
-		   right_player.pos1--;
-		   right_player.pos2--;
-
-		   if(right_player.pos2 <= 0) {
-		   right_player.dir = 1;
-		   }
-		   }
-		   */
 		if(right_player.pos1 < 7) {
 			right_player.pos1++;
 			right_player.pos2++;
@@ -371,14 +482,16 @@ static void MovePlayer() {
 static void Judge() {
 	if(judge_wait >= BALL_MOVE_TIME) {
 		if(ball.pos.n == 0) {
-			_sound(BEEP_LOW);
-			while(1);
+			_sound(BEEP_HIGH);
+			left_player.score++;
+			score_flag = 1;
 		}
 		else if(ball.pos.n == 7) {
-			_sound(BEEP_LOW);
-			while(1);
+			_sound(BEEP_HIGH);
+			right_player.score++;
+			score_flag = 1;
 		}
-	judge_wait = 0;
+		judge_wait = 0;
 	}
 	else {
 		judge_wait++;
@@ -394,14 +507,32 @@ static void UpdateLED(void) {
 		led[i] = 0x00;
 	}
 
-	// プレイヤー表示
-	led[left_player.pos1] |= (uchar)0x80;
-	led[left_player.pos2] |= (uchar)0x80;
-	led[right_player.pos1] |= (uchar)0x01;
-	led[right_player.pos2] |= (uchar)0x01;
+	if(score_flag) {
+		for(i = 0; i < LED_SZ; i++) {
+			led[LED_SZ - 1 - i] |= left_score[left_player.score][i];
+			led[LED_SZ - 1 - i] |= right_score[right_player.score][i];
+		}
 
-	// ボール表示
-	led[ball.pos.m] |= (uchar)(0x01 << ball.pos.n);
+		score_wait++;
+		if(score_wait >= 10) {
+			postions_init();
+			if(left_player.score >= MAX_SCORE || right_player.score >= MAX_SCORE) {
+				while(1);
+			}
+			score_flag = 0;
+			score_wait = 0;
+		}
+	}
+	else {
+		// プレイヤー表示
+		led[left_player.pos1] |= (uchar)0x80;
+		led[left_player.pos2] |= (uchar)0x80;
+		led[right_player.pos1] |= (uchar)0x01;
+		led[right_player.pos2] |= (uchar)0x01;
+
+		// ボール表示
+		led[ball.pos.m] |= (uchar)(0x01 << ball.pos.n);
+	}
 }
 
 // eepromでの乱数初期化
