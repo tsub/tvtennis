@@ -1,3 +1,21 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  user.c
+ *
+ *    Description:  
+ *
+ *        Version:  1.0
+ *        Created:  2014年11月26日 13時02分15秒
+ *       Revision:  none
+ *       Compiler:  gcc
+ *
+ *         Author:  TSUBASA TAKAYAMA
+ *   Organization:  Kanazawa Institute of Technology
+ *
+ * =====================================================================================
+ */
+
 #include "user.h"
 #include <stdlib.h>
 #include <avr/eeprom.h>
@@ -32,17 +50,17 @@ typedef struct Pos {
 
 // 左プレイヤーの情報
 static struct {
-	uchar pos1; // 左プレイヤーの板の位置
-	uchar pos2;
-	int dir; // 左プレイヤーの板の方向
+	uchar pos1; // 左プレイヤーの板の位置（上側）
+	uchar pos2; // 左プレイヤーの板の位置（下側）
+	int dir; // 左プレイヤーの進む方向
 	int score; // 左プレイヤーのスコア
 } left_player;
 
 // 右プレイヤーの情報
 static struct {
-	uchar pos1; // 右プレイヤーの板の位置
-	uchar pos2;
-	int dir; // 右プレイヤーの板の方向
+	uchar pos1; // 右プレイヤーの板の位置（上側）
+	uchar pos2; // 右プレイヤーの板の位置（下側）
+	int dir; // 右プレイヤーの進む方向
 	int score; // 右プレイヤーのスコア
 } right_player;
 
@@ -114,6 +132,7 @@ static void MoveBall() {
 				if(ball.pos.m == right_player.pos1 || ball.pos.m == right_player.pos2) {
 					if(ball.pos.n == 1) {
 						ball.dir = 7;
+						_sound(BEEP_HIGH);
 					}
 				}
 
@@ -138,6 +157,7 @@ static void MoveBall() {
 				if(ball.pos.m == right_player.pos1 || ball.pos.m == right_player.pos2) {
 					if(ball.pos.n == 1) {
 						ball.dir = 6;
+						_sound(BEEP_HIGH);
 					}
 				}
 
@@ -162,6 +182,7 @@ static void MoveBall() {
 				if(ball.pos.m == right_player.pos1 || ball.pos.m == right_player.pos2) {
 					if(ball.pos.n == 1) {
 						ball.dir = 5;
+						_sound(BEEP_HIGH);
 					}
 				}
 
@@ -202,6 +223,7 @@ static void MoveBall() {
 				if(ball.pos.m == left_player.pos1 || ball.pos.m == left_player.pos2) {
 					if(ball.pos.n == 6) {
 						ball.dir = 3;
+						_sound(BEEP_HIGH);
 					}
 				}
 
@@ -226,6 +248,7 @@ static void MoveBall() {
 				if(ball.pos.m == left_player.pos1 || ball.pos.m == left_player.pos2) {
 					if(ball.pos.n == 6) {
 						ball.dir = 2;
+						_sound(BEEP_HIGH);
 					}
 				}
 
@@ -250,6 +273,7 @@ static void MoveBall() {
 				if(ball.pos.m == left_player.pos1 || ball.pos.m == left_player.pos2) {
 					if(ball.pos.n == 6) {
 						ball.dir = 1;
+						_sound(BEEP_HIGH);
 					}
 				}
 
@@ -380,6 +404,7 @@ static void UpdateLED(void) {
 	led[ball.pos.m] |= (uchar)(0x01 << ball.pos.n);
 }
 
+// eepromでの乱数初期化
 static void init_rand() {
 	srand(eeprom_read_word((uint16_t*)EEPADDR));
 	eeprom_write_word((uint16_t*)EEPADDR, rand());
